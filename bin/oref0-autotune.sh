@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 
 # This script sets up an easy test environment for autotune, allowing the user to vary parameters 
 # like start/end date.
@@ -26,7 +26,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-source $(dirname $0)/oref0-bash-common-functions.sh || (echo "ERROR: Failed to run oref0-bash-common-functions.sh. Is oref0 correctly installed?"; exit 1)
+source ./bin/oref0-bash-common-functions.sh || (echo "ERROR: Failed to run oref0-bash-common-functions.sh. Is oref0 correctly installed?"; exit 1)
 
 die() {
     if [[ -z "$API_SECRET" ]]; then
@@ -40,10 +40,10 @@ die() {
 
 # defaults
 CURL_FLAGS="--compressed"
-DIR=""
-NIGHTSCOUT_HOST=""
-START_DATE=""
-END_DATE=""
+DIR = '../myopenaps'
+NIGHTSCOUT_HOST = 'https://ns-drop-gd.herokuapp.com'
+START_DATE = '2020-10-01'
+END_DATE = '2020-10-03'
 START_DAYS_AGO=1  # Default to yesterday if not otherwise specified
 END_DAYS_AGO=1  # Default to yesterday if not otherwise specified
 EXPORT_EXCEL="" # Default is to not export to Microsoft Excel

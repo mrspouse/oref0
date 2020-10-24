@@ -29,9 +29,9 @@ from subprocess import call
 import shutil
 
 
-DIR = ''
-NIGHTSCOUT_HOST = ''
-START_DATE = datetime.datetime.today() - datetime.timedelta(days=1)
+DIR = '../myopenaps'
+NIGHTSCOUT_HOST = 'https://ns-drop-gd.herokuapp.com'
+START_DATE = datetime.datetime.today() - datetime.timedelta(days=17)
 END_DATE = datetime.datetime.today()
 NUMBER_OF_RUNS = 1
 EXPORT_EXCEL = None
@@ -46,18 +46,18 @@ def get_input_arguments():
     parser.add_argument('--dir',
                         '-d',
                         type=str,
-                        required=True,
+                        required=False,
                         help='(--dir=<OpenAPS Directory>)')        
     parser.add_argument('--ns-host',
                         '-n',
                         type=str,
-                        required=True,
+                        required=False,
                         metavar='NIGHTSCOUT_HOST',
                         help='(--ns-host=<NIGHTSCOUT SITE URL)')
     parser.add_argument('--start-date',
                         '-s',
                         type=lambda d: datetime.datetime.strptime(d, '%Y-%m-%d'),
-                        required=True,
+                        required=False,
                         help='(--start-date=<YYYY-MM-DD>)')
     # Optional
     parser.add_argument('--end-date',
@@ -90,11 +90,11 @@ def assign_args_to_variables(args):
     
     # On Unix and Windows, return the argument with an initial component of
     # ~ or ~user replaced by that user's home directory.
-    DIR = os.path.expanduser(args.dir)
+    # DIR = os.path.expanduser(args.dir)
     
-    NIGHTSCOUT_HOST = args.ns_host
+    # NIGHTSCOUT_HOST = args.ns_host
 
-    START_DATE = args.start_date
+    # START_DATE = args.start_date
     
     if args.end_date is not None:
         END_DATE = args.end_date
@@ -110,6 +110,7 @@ def assign_args_to_variables(args):
 
 def get_nightscout_profile(nightscout_host):
     #TODO: Add ability to use API secret for Nightscout.
+    autotune_directory = os.path.join(DIR, 'autotune')
     res = requests.get(nightscout_host + '/api/v1/profile.json')
     with open(os.path.join(autotune_directory, 'nightscout.profile.json'), 'w') as f:  # noqa: F821
         f.write(res.text)
@@ -145,10 +146,11 @@ def get_nightscout_carb_and_insulin_treatments(nightscout_host, start_date, end_
     output_file_name = os.path.join(directory, 'autotune', 'ns-treatments.json')
     start_date = start_date.strftime("%Y-%m-%d") + 'T20:00-05:00'
     end_date = end_date.strftime("%Y-%m-%d") + 'T20:00-05:00'
-    url='{0}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=`date --date="{1} -4 hours" -Iminutes`&find\[created_at\]\[\$lte\]=`date --date="{2} +1 days" -Iminutes`'.format(nightscout_host, start_date, end_date)
+    # url='{0}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=`date --date="{1} -4 hours" -Iminutes`&find\[created_at\]\[\$lte\]=`date --date="{2} +1 days" -Iminutes`'.format(nightscout_host, start_date, end_date)
+    url='{0}/api/v1/treatments.json?find[created_at][$gte]={1}&find[created_at][$lte]={2}'.format(nightscout_host, start_date, end_date)
     #TODO: Add ability to use API secret for Nightscout.
     res = requests.get(url)
-    with open(output_file_name, 'w') as f:
+    with open(output_file_name, 'wb') as f:
         f.write(res.text.encode('utf-8'))
 
 def get_nightscout_bg_entries(nightscout_host, start_date, end_date, directory):
@@ -156,11 +158,11 @@ def get_nightscout_bg_entries(nightscout_host, start_date, end_date, directory):
     date_list = [start_date + datetime.timedelta(days=x) for x in range(0, (end_date - start_date).days)]
 
     for date in date_list:
-        url="{0}/api/v1/entries/sgv.json?find\[date\]\[\$gte\]={1}&find\[date\]\[\$lte\]={1}`&count=1500"
+        url="{0}/api/v1/entries/sgv.json?find\[date\]\[\$gte\]={1}&find\[date\]\[\$lte\]={1}`&count=15"
         url = url.format(nightscout_host, date)
         #TODO: Add ability to use API secret for Nightscout.
         res = requests.get(url)
-        with open(os.path.join(directory, 'autotune', 'ns-entries.{date}.json'.format(date=date.strftime("%Y-%m-%d"))), 'w') as f:
+        with open(os.path.join(directory, 'autotune', 'ns-entries.{date}.json'.format(date=date.strftime("%Y-%m-%d"))), 'wb') as f:
             f.write(res.text.encode('utf-8'))
 
 def run_autotune(start_date, end_date, number_of_runs, directory):
@@ -179,7 +181,7 @@ def run_autotune(start_date, end_date, number_of_runs, directory):
             ns_treatments = os.path.join(autotune_directory, 'ns-treatments.json')
             profile = os.path.join(autotune_directory, 'profile.json')
             ns_entries = os.path.join(autotune_directory, 'ns-entries.{date}.json'.format(date=date.strftime("%Y-%m-%d")))
-            autotune_prep = 'oref0-autotune-prep {ns_treatments} {profile} {ns_entries}'.format(ns_treatments=ns_treatments, profile=profile, ns_entries=ns_entries)
+            autotune_prep = './bin/oref0-autotune-prep.js {ns_treatments} {profile} {ns_entries}'.format(ns_treatments=ns_treatments, profile=profile, ns_entries=ns_entries)
             
             # autotune.$RUN_NUMBER.$DATE.json  
             autotune_run_filename = os.path.join(autotune_directory, 'autotune.{run_number}.{date}.json'
@@ -195,7 +197,7 @@ def run_autotune(start_date, end_date, number_of_runs, directory):
         
             # oref0-autotune-core autotune.$run_number.$i.json profile.json profile.pump.json > newprofile.$RUN_NUMBER.$DATE.json
             profile_pump = os.path.join(autotune_directory, 'profile.pump.json')
-            autotune_core = 'oref0-autotune-core {autotune_run} {profile} {profile_pump}'.format(profile=profile, profile_pump = profile_pump, autotune_run=autotune_run_filename)
+            autotune_core = './bin/oref0-autotune-core.js {autotune_run} {profile} {profile_pump}'.format(profile=profile, profile_pump = profile_pump, autotune_run=autotune_run_filename)
             
             # newprofile.$RUN_NUMBER.$DATE.json
             newprofile_run_filename = os.path.join(autotune_directory, 'newprofile.{run_number}.{date}.json'
